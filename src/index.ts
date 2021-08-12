@@ -33,8 +33,8 @@ export default class EventDispatcher implements Attributable {
     protected logger: Logger,
     protected attributes: Attributes = {},
   ) {
-    this.manifestHandler = new ManifestHandler(this.attributes);
-    this.communication = new Communication(this.attributes);
+    this.manifestHandler = new ManifestHandler();
+    this.communication = new Communication();
   }
 
   /**
@@ -42,8 +42,6 @@ export default class EventDispatcher implements Attributable {
    */
   public setAttributes = (attributes: Attributes): void => {
     this.attributes = attributes;
-    this.manifestHandler.setAttributes(attributes);
-    this.communication.setAttributes(attributes);
   };
 
   /**
@@ -62,7 +60,7 @@ export default class EventDispatcher implements Attributable {
     return new Promise((resolve, reject) => {
       try {
         if (handler instanceof URL) {
-          this.manifestHandler.fetchRemoteManifest(handler)
+          this.manifestHandler.fetchRemoteManifest(handler, this.attributes)
             .then((manifest) => {
               this.saveManifest(handler, manifest);
               resolve();
@@ -82,12 +80,14 @@ export default class EventDispatcher implements Attributable {
    * Sends the given event to handlers which subscribe to the event
    *
    * @param e
+   * @param a
    */
-  public trigger = async (e: IEvent): Promise<void> => {
+  public trigger = async (e: IEvent, a: Attributes = {}): Promise<void> => {
     if (!(e instanceof Event)) {
       throw new Error('Invalid event argument.');
     }
 
+    const attributes = { ...this.attributes, ...a };
     const handlerNames = Object.keys(this.listeners);
     for (let y = 0; y < handlerNames.length; y++) {
       const handlerName = handlerNames[y];
@@ -101,7 +101,7 @@ export default class EventDispatcher implements Attributable {
             if (callback instanceof URL) {
               const comFunc = callback.protocol === 'pubsub:' ? this.communication.pubSub : this.communication.post;
               this.logger.debug(`Dispatching to "${callback.toString()}"`, e);
-              const [body, version] = await comFunc(callback, { [JsonEventKey]: e });
+              const [body, version] = await comFunc(callback, { [JsonEventKey]: e }, attributes);
               this.logger.debug(`Response from "${callback.toString()}"`, body);
 
               this.mergeRemoteEventValues(e, body);
@@ -177,7 +177,7 @@ export default class EventDispatcher implements Attributable {
     const handler = this.handlers[handlerName];
     if (handler.manifest.version !== version && handler.callback instanceof URL) {
       this.logger.debug(`Reloading manifest for ${handler.callback.toString()}`);
-      this.manifestHandler.fetchRemoteManifest(handler.callback)
+      this.manifestHandler.fetchRemoteManifest(handler.callback, this.attributes)
         .then((manifest) => {
           this.saveManifest(handler.callback, manifest);
         });

@@ -5,30 +5,13 @@ import {
   JsonEventKey,
 } from '@basetime/wss-node-sdk';
 import Communication from './communication';
-import { Attributable, Attributes } from './attributes';
+import { Attributes } from './attributes';
 
 /**
  * Used to fetch and parse manifests.
  */
-export default class ManifestHandler implements Attributable {
+export default class ManifestHandler {
   private communication: Communication;
-
-  /**
-   * Constructor
-   *
-   * @param attributes Get passed along to each event handler
-   */
-  constructor(protected attributes: Attributes = {}) {
-    this.communication = new Communication(this.attributes);
-  }
-
-  /**
-   * @inheritDoc
-   */
-  public setAttributes = (attributes: Attributes): void => {
-    this.attributes = attributes;
-    this.communication.setAttributes(attributes);
-  };
 
   /**
    *
@@ -36,36 +19,15 @@ export default class ManifestHandler implements Attributable {
    */
   public setCommunication = (communication: Communication) => {
     this.communication = communication;
-    this.communication.setAttributes(this.attributes);
-  };
-
-  /**
-   * Converts a JSON string representation of a manifest into a Manifest instance
-   *
-   * @param jsonData
-   */
-  public parseRemoteManifest = (jsonData: any): Manifest => {
-    if (typeof jsonData !== 'object') {
-      throw new Error('Expected remote manifest to be typeof object');
-    }
-    if (typeof jsonData[JsonEventKey] === undefined) {
-      throw new Error(`Remote event handler incorrect ${JsonEventKey} response.`);
-    }
-    ['manifestVersion', 'name', 'subsystem', 'description', 'version', 'subscriptions'].forEach((key) => {
-      if (jsonData[JsonEventKey][key] === undefined) {
-        throw new Error(`Remote manifest missing key "${key}"`);
-      }
-    });
-
-    return jsonData[JsonEventKey] as Manifest;
   };
 
   /**
    * Fetches a remote event listener manifest
    *
    * @param url
+   * @param a
    */
-  public fetchRemoteManifest = (url: URL): Promise<Manifest> => {
+  public fetchRemoteManifest = (url: URL, a: Attributes): Promise<Manifest> => {
     return new Promise((resolve, reject) => {
       const data = {
         [JsonEventKey]: { name: ManifestEventName },
@@ -98,15 +60,36 @@ export default class ManifestHandler implements Attributable {
       };
 
       if (url.protocol === 'pubsub:') {
-        this.communication.pubSub(url, data)
+        this.communication.pubSub(url, data, a)
           .then(handleBody)
           .catch(reject);
       } else {
-        this.communication.post(url, data)
+        this.communication.post(url, data, a)
           .then(handleBody)
           .catch(reject);
       }
     });
+  };
+
+  /**
+   * Converts a JSON string representation of a manifest into a Manifest instance
+   *
+   * @param jsonData
+   */
+  public parseRemoteManifest = (jsonData: any): Manifest => {
+    if (typeof jsonData !== 'object') {
+      throw new Error('Expected remote manifest to be typeof object');
+    }
+    if (typeof jsonData[JsonEventKey] === undefined) {
+      throw new Error(`Remote event handler incorrect ${JsonEventKey} response.`);
+    }
+    ['manifestVersion', 'name', 'subsystem', 'description', 'version', 'subscriptions'].forEach((key) => {
+      if (jsonData[JsonEventKey][key] === undefined) {
+        throw new Error(`Remote manifest missing key "${key}"`);
+      }
+    });
+
+    return jsonData[JsonEventKey] as Manifest;
   };
 
   /**
