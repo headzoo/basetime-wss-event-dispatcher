@@ -1,9 +1,11 @@
+import cacheManager, { Cache } from 'cache-manager';
 import {
   IEvent,
   Event,
   Manifest,
   AnyEventHandler,
   JsonEventKey,
+  JsonPluginVersion,
   Logger,
 } from '@basetime/wss-node-sdk';
 import ManifestHandler from './manifest';
@@ -18,23 +20,32 @@ type EventListeners = Record<string, Record<string, EventCallback[]>>;
  * Dispatches events to local and remote event handlers.
  */
 export default class EventDispatcher implements Attributable {
+  protected static manifestCacheSeconds = 300;
   private handlers: EventHandlers = {};
   private listeners: EventListeners = {};
   private manifestHandler: ManifestHandler;
-  private communication: Communication;
+  private readonly communication: Communication;
+  private cache: Cache;
 
   /**
    * Constructor
    *
-   * @param logger
+   * @param logger Logs incoming and outgoing requests
    * @param attributes Get passed along to each event handler
+   * @param cache Caches manifests
    */
   constructor(
     protected logger: Logger,
     protected attributes: Attributes = {},
+    cache?: Cache,
   ) {
-    this.manifestHandler = new ManifestHandler();
     this.communication = new Communication();
+    this.manifestHandler = new ManifestHandler(this.communication);
+    this.cache = cache || cacheManager.caching({
+      store: 'memory',
+      max: 100,
+      ttl: EventDispatcher.manifestCacheSeconds,
+    });
   }
 
   /**
@@ -60,7 +71,9 @@ export default class EventDispatcher implements Attributable {
     return new Promise((resolve, reject) => {
       try {
         if (handler instanceof URL) {
-          this.manifestHandler.fetchRemoteManifest(handler, this.attributes)
+          this.cache.wrap<Manifest>(handler.toString(), () => {
+            return this.manifestHandler.fetchRemoteManifest(handler, this.attributes);
+          }, { ttl: EventDispatcher.manifestCacheSeconds })
             .then((manifest) => {
               this.saveManifest(handler, manifest);
               resolve();
@@ -91,6 +104,7 @@ export default class EventDispatcher implements Attributable {
     const handlerNames = Object.keys(this.listeners);
     for (let y = 0; y < handlerNames.length; y++) {
       const handlerName = handlerNames[y];
+      const handleManifest = this.handlers[handlerName].manifest;
 
       if (this.listeners[handlerName] && this.listeners[handlerName][e.name]) {
         const listeners = this.listeners[handlerName][e.name];
@@ -99,9 +113,13 @@ export default class EventDispatcher implements Attributable {
           try {
             const callback = listeners[i];
             if (callback instanceof URL) {
+              const req = {
+                [JsonEventKey]: e,
+                [JsonPluginVersion]: handleManifest.version,
+              };
               const comFunc = callback.protocol === 'pubsub:' ? this.communication.pubSub : this.communication.post;
-              this.logger.debug(`Dispatching to "${callback.toString()}"`, e);
-              const [body, version] = await comFunc(callback, { [JsonEventKey]: e }, attributes);
+              this.logger.debug(`Dispatching to "${callback.toString()}"`, req);
+              const [body, version] = await comFunc(callback, req, attributes);
               this.logger.debug(`Response from "${callback.toString()}"`, body);
 
               this.mergeRemoteEventValues(e, body);

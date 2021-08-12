@@ -11,7 +11,12 @@ import { Attributes } from './attributes';
  * Used to fetch and parse manifests.
  */
 export default class ManifestHandler {
-  private communication: Communication;
+  /**
+   * Constructor
+   *
+   * @param communication
+   */
+  constructor(private communication: Communication) {}
 
   /**
    *
