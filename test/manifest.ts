@@ -25,7 +25,7 @@ describe('ManifestHandler', () => {
         });
 
       const mh = new ManifestHandler();
-      const manifest = await mh.fetchRemoteManifest(new URL('http://localhost:5001/'));
+      const manifest = await mh.fetchRemoteManifest(new URL('http://localhost:5001/'), {});
       expect(typeof manifest).to.equal('object');
       expect(manifest.name).to.equal('Test');
       expect(manifest.subsystem).to.equal('test');

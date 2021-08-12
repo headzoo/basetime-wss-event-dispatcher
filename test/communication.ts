@@ -19,7 +19,7 @@ describe('Communication', () => {
   describe('#post', () => {
     it('request is complete', () => {
       const c = new Communication();
-      return c.post('http://localhost:5001/payment-query', { event: { name: 'payments.QUERY' } })
+      return c.post('http://localhost:5001/payment-query', { event: { name: 'payments.QUERY' } }, {})
         .then(([resp]) => {
           expect(typeof resp).to.equal('object');
           expect(resp.isComplete).to.equal(true);
