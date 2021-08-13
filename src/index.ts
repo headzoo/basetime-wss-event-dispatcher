@@ -90,6 +90,27 @@ export default class EventDispatcher implements Attributable {
   };
 
   /**
+   * Adds event handlers via string identifies which are stuitable for storing in configuration stores.
+   *
+   * @param config
+   */
+  public addFromConfig = async (config: string[]) => {
+    for (let i = 0; i < config.length; i++) {
+      const handler = config[i];
+      if (handler.indexOf('pubsub:') === 0 || handler.indexOf('http') === 0) {
+        await this.add(new URL(handler));
+      } else {
+        const defaultExport = await import(handler);
+        if (!defaultExport || !defaultExport.default) {
+          throw new Error(`Event handler has no default export "${handler}".`);
+        }
+        // eslint-disable-next-line new-cap
+        await this.add(new defaultExport.default());
+      }
+    }
+  };
+
+  /**
    * Sends the given event to handlers which subscribe to the event
    *
    * @param e

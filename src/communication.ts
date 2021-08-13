@@ -108,8 +108,9 @@ export default class Communication {
             [JsonReturnTopic]: `${handler.host}/${projectId}/${topicName}-return`,
             [HeaderWssEvent]: messageId,
           };
+          const prefix = HeaderWssAttrib.toLowerCase();
           Object.keys(a).forEach((key) => {
-            attribs[`${HeaderWssAttrib}-${key}`] = a[key];
+            attribs[`${prefix}-${key.toLowerCase()}`] = `${key}:${a[key]}`;
           });
           return p.topic(topicName).publishJSON(body, attribs);
         })
