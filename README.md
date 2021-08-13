@@ -29,9 +29,8 @@ import { PaymentQueryEvent } from './events';
 
 (async () => {
   const config = [
-    'http://localhost:5001/wss/us-central1/cyberSourcePaymentRequest',
-    'http://localhost:5001/wss/us-central1/cyberSourcePaymentHTTP',
-    'pubsub://localhost:8089/wss/payments-cybersource?timeout=10000',
+    'https://us-central1-project.cloudfunctions.net/cybersourcePayments',
+    'pubsub://us-central1-project.cloudfunctions.net/shift4Payments',
     `${__dirname}/plugins/paymentHandler`,
   ];
   const logger = new Logger('EventDispatcher', '1234', '1234');
